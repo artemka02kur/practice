@@ -8,12 +8,12 @@ import sys
 import cv2
 import numpy as np
 
-# Настройка логирования
+
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
 def load_images_from_folder(folder):
-    # Поддерживаемые форматы изображений
+
     supported_formats = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
     images = []
     for filename in os.listdir(folder):
@@ -71,8 +71,6 @@ def visualize_duplicates(duplicates):
         if images:
             max_height = max(img.shape[0] for _, img in images)
             total_width = sum(img.shape[1] for _, img in images)
-
-            # Создание изображения для отображения всех дубликатов в одном ряду
             combined_img = np.zeros((max_height, total_width, 3), dtype=np.uint8)
 
             current_x = 0
@@ -80,8 +78,6 @@ def visualize_duplicates(duplicates):
                 height, width = img.shape[:2]
                 combined_img[0:height, current_x:current_x + width] = img
                 current_x += width
-
-            # Отображение изображения с дубликатами
             cv2.imshow(f'Duplicates with hash {hash_val}', combined_img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
