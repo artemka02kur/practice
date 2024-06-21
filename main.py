@@ -2,8 +2,7 @@ import os
 import imagehash
 from PIL import Image
 import logging
-from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor
+from collections import Counter
 import sys
 import cv2
 import numpy as np
@@ -12,19 +11,15 @@ import numpy as np
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-def load_images_from_folder(folder):
-
-    supported_formats = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
-    images = []
+def get_folder_images_paths(folder):
+    supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')
+    paths = set()
     for filename in os.listdir(folder):
         if filename.lower().endswith(supported_formats):
             img_path = os.path.join(folder, filename)
-            try:
-                img = Image.open(img_path)
-                images.append((filename, img))
-            except Exception as e:
-                logging.warning(f"Не удалось открыть изображение {img_path}: {e}")
-    return images
+            paths.add(img_path)
+    logging.info(f"Found image paths in {folder}: {paths}")
+    return paths
 
 
 def compute_hash(image):
@@ -32,41 +27,74 @@ def compute_hash(image):
 
 
 def find_duplicates(folders):
-    hashes = defaultdict(list)
+    result = []
+    all_hashes = []
+    hashes_paths = []
+    if not folders:
+        return []
 
-    def process_folder(folder):
-        if not os.path.exists(folder):
-            logging.warning(f"Папка не найдена: {folder}")
-            return
+    for folder in folders:
+        images_hashes, duplicates = process_folder(folder)
+        result += duplicates
+        all_hashes += list(images_hashes.keys())
+        for key, value in images_hashes.items():
+            hashes_paths.append((key, value))
 
-        images = load_images_from_folder(folder)
-        for name, img in images:
-            hash_val = compute_hash(img)
-            hashes[hash_val].append((folder, name))
+    count_duplicates = Counter(all_hashes)
 
-    with ThreadPoolExecutor() as executor:
-        executor.map(process_folder, folders)
+    for image_hash, number_duplicates in count_duplicates.items():
+        if number_duplicates > 1:
+            image_duplicate = []
+            logging.info(f"found: {number_duplicates} duplcates ")
+            for hash_path in hashes_paths:
+                if hash_path[0] == image_hash:
+                    logging.info(f"found: {hash_path[1]} path")
+                    image_duplicate.append(hash_path[1])
+            result.append(image_duplicate)
+    logging.info(f"result: {result} ")
+    return result
 
-    duplicates = {h: files for h, files in hashes.items() if len(files) > 1}
-    return duplicates
+def process_folder(folder):
+    duplicates = []
+    images_hashes = {}
+    if not os.path.exists(folder):
+        logging.warning(f"Folder not found: {folder}")
+        return {}, []
+    paths = get_folder_images_paths(folder)
+    for path in paths:
+        try:
+            with Image.open(path) as img:
+                hash_val = compute_hash(img)
+                if hash_val in images_hashes:
+                    logging.info(f"Duplicates found: {path} and {images_hashes[hash_val]}")
+                    duplicates.append([images_hashes[hash_val], path])
+                images_hashes[hash_val] = path
+        except Exception as e:
+            logging.warning(f"Error processing image {path}: {e}")
+    return images_hashes, duplicates
 
 
 def display_duplicates(duplicates):
-    for hash_val, files in duplicates.items():
-        logging.info(f"Дубликаты с хэшем {hash_val}:")
-        for folder, name in files:
-            img_path = os.path.join(folder, name)
+    for duplicate_group in duplicates:
+        logging.info("Duplicate images:")
+        for img_path in duplicate_group:
             logging.info(f"{img_path}")
 
-
 def visualize_duplicates(duplicates):
-    for hash_val, files in duplicates.items():
+    for duplicate_group in duplicates:
         images = []
-        for folder, name in files:
-            img_path = os.path.join(folder, name)
+        for img_path in duplicate_group:
+            if not isinstance(img_path, str):
+                logging.warning(f"Invalid image path type: {type(img_path)}")
+                continue
+            if not os.path.exists(img_path):
+                logging.warning(f"Image path does not exist: {img_path}")
+                continue
             img = cv2.imread(img_path)
-            if img is not None:
-                images.append((name, img))
+            if img is None:
+                logging.warning(f"Failed to load image: {img_path}")
+                continue
+            images.append((img_path, img))
 
         if images:
             max_height = max(img.shape[0] for _, img in images)
@@ -74,11 +102,12 @@ def visualize_duplicates(duplicates):
             combined_img = np.zeros((max_height, total_width, 3), dtype=np.uint8)
 
             current_x = 0
-            for name, img in images:
+            for img_path, img in images:
                 height, width = img.shape[:2]
                 combined_img[0:height, current_x:current_x + width] = img
                 current_x += width
-            cv2.imshow(f'Duplicates with hash {hash_val}', combined_img)
+
+            cv2.imshow('Duplicate Images', combined_img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
