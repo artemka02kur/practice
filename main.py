@@ -12,8 +12,10 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 
-# Функция для получения путей к изображениям в папке
 def get_folder_images_paths(folder):
+    '''
+    Функция для получения путей к изображениям в папке
+    '''
     supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')  # Поддерживаемые форматы изображений
     paths = set()  # Множество для хранения путей к изображениям
     for filename in os.listdir(folder):  # Перебор файлов в папке
