@@ -11,97 +11,86 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+# Функция для получения путей к изображениям в папке
 def get_folder_images_paths(folder):
-    """
-    Возвращает набор путей изображений в папке.
-    Поддерживаемые форматы: .jpeg, .jpg, .png, .bmp, .gif
-    """
-    supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')
-    paths = set()
-    for filename in os.listdir(folder):
-        if filename.lower().endswith(supported_formats):
-            img_path = os.path.join(folder, filename)
-            paths.add(img_path)
-    logging.info(f"Found image paths in {folder}: {paths}")
+    supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')  # Поддерживаемые форматы изображений
+    paths = set()  # Множество для хранения путей к изображениям
+    for filename in os.listdir(folder):  # Перебор файлов в папке
+        if filename.lower().endswith(supported_formats):  # Проверка формата файла
+            img_path = os.path.join(folder, filename)  # Полный путь к изображению
+            paths.add(img_path)  # Добавление пути в множество
+    logging.info(f"Found image paths in {folder}: {paths}")  # Логирование найденных путей
     return paths
 
+# Функция для вычисления хэша изображения
 def compute_hash(image):
-    """
-    Вычисляет перцептивный хэш изображения.
-    """
-    return imagehash.phash(image)
+    return imagehash.phash(image)  # Использование perceptual hash для вычисления хэша
 
+# Функция для обработки папки и поиска дубликатов изображений
 def process_folder(folder):
-    """
-    Обрабатывает изображения в папке, вычисляя их хэши.
-    Возвращает словарь хэшей и списки дубликатов.
-    """
-    duplicates = []
-    images_hashes = {}
-    if not os.path.exists(folder):
-        logging.warning(f"Folder not found: {folder}")
-        return {}, []
-    paths = get_folder_images_paths(folder)
-    for path in paths:
+    duplicates = []  # Список для хранения дубликатов
+    images_hashes = {}  # Словарь для хранения хэшей изображений и их путей
+    if not os.path.exists(folder):  # Проверка существования папки
+        logging.warning(f"Folder not found: {folder}")  # Логирование предупреждения
+        return {}, []  # Возвращение пустых значений
+    paths = get_folder_images_paths(folder)  # Получение путей к изображениям в папке
+    for path in paths:  # Перебор путей к изображениям
         try:
-            with Image.open(path) as img:
-                hash_val = compute_hash(img)
-                if hash_val in images_hashes:
-                    logging.info(f"Duplicates found: {path} and {images_hashes[hash_val]}")
-                    duplicates.append([images_hashes[hash_val], path])
-                images_hashes[hash_val] = path
-        except Exception as e:
-            logging.warning(f"Error processing image {path}: {e}")
-    return images_hashes, duplicates
+            with Image.open(path) as img:  # Открытие изображения
+                hash_val = compute_hash(img)  # Вычисление хэша изображения
+                if hash_val in images_hashes:  # Проверка наличия хэша в словаре
+                    logging.info(f"Duplicates found: {path} and {images_hashes[hash_val]}")  # Логирование дубликатов
+                    duplicates.append([images_hashes[hash_val], path])  # Добавление дубликатов в список
+                images_hashes[hash_val] = path  # Добавление хэша и пути в словарь
+        except Exception as e:  # Обработка исключений
+            logging.warning(f"Error processing image {path}: {e}")  # Логирование ошибок
+    return images_hashes, duplicates  # Возвращение словаря хэшей и списка дубликатов
 
+# Функция для поиска дубликатов изображений в нескольких папках
 def find_duplicates(folders):
-    """
-    Находит дубликаты изображений в указанных папках.
-    """
-    result = []
-    all_hashes = []
-    hashes_paths = []
+    result = []  # Список для хранения результатов
+    all_hashes = []  # Список для хранения всех хэшей
+    hashes_paths = []  # Список для хранения хэшей и путей к изображениям
 
-    with ProcessPoolExecutor() as executor:
-        futures = {executor.submit(process_folder, folder): folder for folder in folders}
-        for future in as_completed(futures):
-            folder = futures[future]
+    with ProcessPoolExecutor() as executor:  # Создание пула процессов
+        futures = {executor.submit(process_folder, folder): folder for folder in folders}  # Отправка задач в пул процессов
+        for future in as_completed(futures):  # Обработка завершенных задач
+            folder = futures[future]  # Получение папки, связанной с задачей
             try:
-                images_hashes, duplicates = future.result()
-                result += duplicates
-                all_hashes += list(images_hashes.keys())
-                for key, value in images_hashes.items():
-                    hashes_paths.append((key, value))
-            except Exception as exc:
-                logging.warning(f"{folder} generated an exception: {exc}")
+                images_hashes, duplicates = future.result()  # Получение результатов задачи
+                result += duplicates  # Добавление дубликатов в общий список
+                all_hashes += list(images_hashes.keys())  # Добавление хэшей в общий список
+                for key, value in images_hashes.items():  # Перебор хэшей и путей
+                    hashes_paths.append((key, value))  # Добавление хэшей и путей в список
+            except Exception as exc:  # Обработка исключений
+                logging.warning(f"{folder} generated an exception: {exc}")  # Логирование исключений
 
-    count_duplicates = Counter(all_hashes)
+    count_duplicates = Counter(all_hashes)  # Подсчет количества каждого хэша
 
-    for image_hash, number_duplicates in count_duplicates.items():
-        if number_duplicates > 1:
-            image_duplicate = []
-            logging.info(f"Found: {number_duplicates} duplicates ")
-            for hash_path in hashes_paths:
-                if hash_path[0] == image_hash:
-                    logging.info(f"Found: {hash_path[1]} path")
-                    image_duplicate.append(hash_path[1])
-            result.append(image_duplicate)
-    logging.info(f"Result: {result} ")
-    return result
+    for image_hash, number_duplicates in count_duplicates.items():  # Перебор хэшей и их количества
+        if number_duplicates > 1:  # Проверка наличия дубликатов
+            image_duplicate = []  # Список для хранения путей к дубликатам
+            logging.info(f"Found: {number_duplicates} duplicates ")  # Логирование количества дубликатов
+            for hash_path in hashes_paths:  # Перебор хэшей и путей
+                if hash_path[0] == image_hash:  # Проверка совпадения хэша
+                    logging.info(f"Found: {hash_path[1]} path")  # Логирование пути к дубликату
+                    image_duplicate.append(hash_path[1])  # Добавление пути в список дубликатов
+            result.append(image_duplicate)  # Добавление списка дубликатов в общий список
+    logging.info(f"Result: {result} ")  # Логирование итогового результата
+    return result  # Возвращение списка дубликатов
 
 def display_duplicates(duplicates):
-    """
-    Выводит информацию о дубликатах изображений.
-    """
+    #  Выводит информацию о дубликатах изображений.
+
     for duplicate_group in duplicates:
         logging.info("Duplicate images:")
         for img_path in duplicate_group:
             logging.info(f"{img_path}")
 
 def visualize_duplicates(duplicates):
-    """
-    Визуализирует дубликаты изображений.
-    """
+
+  # Визуализирует дубликаты изображений.
+
     for duplicate_group in duplicates:
         images = []
         for img_path in duplicate_group:
