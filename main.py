@@ -11,6 +11,7 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 # Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
+
 # Функция для получения путей к изображениям в папке
 def get_folder_images_paths(folder):
     supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')  # Поддерживаемые форматы изображений
@@ -22,9 +23,11 @@ def get_folder_images_paths(folder):
     logging.info(f"Found image paths in {folder}: {paths}")  # Логирование найденных путей
     return paths
 
+
 # Функция для вычисления хэша изображения
 def compute_hash(image):
     return imagehash.phash(image)  # Использование perceptual hash для вычисления хэша
+
 
 # Функция для обработки папки и поиска дубликатов изображений
 def process_folder(folder):
@@ -45,6 +48,7 @@ def process_folder(folder):
         except Exception as e:  # Обработка исключений
             logging.warning(f"Error processing image {path}: {e}")  # Логирование ошибок
     return images_hashes, duplicates  # Возвращение словаря хэшей и списка дубликатов
+
 
 # Функция для поиска дубликатов изображений в нескольких папках
 def find_duplicates(folders):
@@ -79,6 +83,7 @@ def find_duplicates(folders):
     logging.info(f"Result: {result} ")  # Логирование итогового результата
     return result  # Возвращение списка дубликатов
 
+
 def display_duplicates(duplicates):
     #  Выводит информацию о дубликатах изображений.
 
@@ -87,9 +92,9 @@ def display_duplicates(duplicates):
         for img_path in duplicate_group:
             logging.info(f"{img_path}")
 
-def visualize_duplicates(duplicates):
 
-  # Визуализирует дубликаты изображений.
+def visualize_duplicates(duplicates):
+    # Визуализирует дубликаты изображений.
 
     for duplicate_group in duplicates:
         images = []
@@ -120,6 +125,7 @@ def visualize_duplicates(duplicates):
             cv2.imshow('Duplicate Images', combined_img)
             cv2.waitKey(0)
             cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     if len(sys.argv) > 1:
