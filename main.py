@@ -6,12 +6,16 @@ from collections import Counter
 import sys
 import cv2
 import numpy as np
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
-
+# Настройка логирования
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-
 def get_folder_images_paths(folder):
+    """
+    Возвращает набор путей изображений в папке.
+    Поддерживаемые форматы: .jpeg, .jpg, .png, .bmp, .gif
+    """
     supported_formats = ('.jpeg', '.jpg', '.png', '.bmp', '.gif')
     paths = set()
     for filename in os.listdir(folder):
@@ -21,40 +25,17 @@ def get_folder_images_paths(folder):
     logging.info(f"Found image paths in {folder}: {paths}")
     return paths
 
-
 def compute_hash(image):
+    """
+    Вычисляет перцептивный хэш изображения.
+    """
     return imagehash.phash(image)
 
-
-def find_duplicates(folders):
-    result = []
-    all_hashes = []
-    hashes_paths = []
-    if not folders:
-        return []
-
-    for folder in folders:
-        images_hashes, duplicates = process_folder(folder)
-        result += duplicates
-        all_hashes += list(images_hashes.keys())
-        for key, value in images_hashes.items():
-            hashes_paths.append((key, value))
-
-    count_duplicates = Counter(all_hashes)
-
-    for image_hash, number_duplicates in count_duplicates.items():
-        if number_duplicates > 1:
-            image_duplicate = []
-            logging.info(f"found: {number_duplicates} duplcates ")
-            for hash_path in hashes_paths:
-                if hash_path[0] == image_hash:
-                    logging.info(f"found: {hash_path[1]} path")
-                    image_duplicate.append(hash_path[1])
-            result.append(image_duplicate)
-    logging.info(f"result: {result} ")
-    return result
-
 def process_folder(folder):
+    """
+    Обрабатывает изображения в папке, вычисляя их хэши.
+    Возвращает словарь хэшей и списки дубликатов.
+    """
     duplicates = []
     images_hashes = {}
     if not os.path.exists(folder):
@@ -73,14 +54,54 @@ def process_folder(folder):
             logging.warning(f"Error processing image {path}: {e}")
     return images_hashes, duplicates
 
+def find_duplicates(folders):
+    """
+    Находит дубликаты изображений в указанных папках.
+    """
+    result = []
+    all_hashes = []
+    hashes_paths = []
+
+    with ProcessPoolExecutor() as executor:
+        futures = {executor.submit(process_folder, folder): folder for folder in folders}
+        for future in as_completed(futures):
+            folder = futures[future]
+            try:
+                images_hashes, duplicates = future.result()
+                result += duplicates
+                all_hashes += list(images_hashes.keys())
+                for key, value in images_hashes.items():
+                    hashes_paths.append((key, value))
+            except Exception as exc:
+                logging.warning(f"{folder} generated an exception: {exc}")
+
+    count_duplicates = Counter(all_hashes)
+
+    for image_hash, number_duplicates in count_duplicates.items():
+        if number_duplicates > 1:
+            image_duplicate = []
+            logging.info(f"Found: {number_duplicates} duplicates ")
+            for hash_path in hashes_paths:
+                if hash_path[0] == image_hash:
+                    logging.info(f"Found: {hash_path[1]} path")
+                    image_duplicate.append(hash_path[1])
+            result.append(image_duplicate)
+    logging.info(f"Result: {result} ")
+    return result
 
 def display_duplicates(duplicates):
+    """
+    Выводит информацию о дубликатах изображений.
+    """
     for duplicate_group in duplicates:
         logging.info("Duplicate images:")
         for img_path in duplicate_group:
             logging.info(f"{img_path}")
 
 def visualize_duplicates(duplicates):
+    """
+    Визуализирует дубликаты изображений.
+    """
     for duplicate_group in duplicates:
         images = []
         for img_path in duplicate_group:
@@ -111,14 +132,13 @@ def visualize_duplicates(duplicates):
             cv2.waitKey(0)
             cv2.destroyAllWindows()
 
-
 if __name__ == "__main__":
     if len(sys.argv) > 1:
         folders = sys.argv[1:]
     else:
         script_dir = os.path.dirname(os.path.abspath(__file__))
         folders = [
-            os.path.join(script_dir, 'venv', 'images1'),
+            os.path.join(script_dir, 'venv', 'image1'),
             os.path.join(script_dir, 'venv', 'Lotus'),
             os.path.join(script_dir, 'venv', 'Orchid'),
             os.path.join(script_dir, 'venv', 'Sunflower'),
@@ -129,8 +149,8 @@ if __name__ == "__main__":
     duplicates = find_duplicates(folders)
 
     if duplicates:
-        logging.info("Найдены дубликаты изображений:")
+        logging.info("Duplicates found:")
         display_duplicates(duplicates)
         visualize_duplicates(duplicates)
     else:
-        logging.info("Дубликаты изображений не найдены.")
+        logging.info("Duplicates not found.")
