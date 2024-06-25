@@ -20,8 +20,8 @@ def test_find_duplicates_found_in_one_folder():
     duplicates = find_duplicates(folders)
     assert len(duplicates) == 1
     assert len(duplicates[0]) == 2
-    assert "C:\\Users\\37529\\practice1\\venv\\images2\\rtyuj.png" in duplicates[0]
-    assert "C:\\Users\\37529\\practice1\\venv\\images2\\202535.png" in duplicates[0]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images2\\rtyuj.png" in duplicates[0]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images2\\202535.png" in duplicates[0]
 
 
 def test_find_duplicates_found_in_two_folders():
@@ -32,10 +32,10 @@ def test_find_duplicates_found_in_two_folders():
     assert len(duplicates) == 2
     assert len(duplicates[0]) == 2
     assert len(duplicates[1]) == 2
-    assert "C:\\Users\\37529\\practice1\\venv\\images2\\98.jpg" in duplicates[1]
-    assert "C:\\Users\\37529\\practice1\\venv\\images1\\1.jpg" in duplicates[1]
-    assert "C:\\Users\\37529\\practice1\\venv\\images2\\rtyuj.png" in duplicates[0]
-    assert "C:\\Users\\37529\\practice1\\venv\\images2\\202535.png" in duplicates[0]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images2\\98.jpg" in duplicates[1]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images1\\1.jpg" in duplicates[1]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images2\\rtyuj.png" in duplicates[0]
+    assert "C:\\Users\\artem\\OneDrive\\Documents\\GitHub\\practice-1\\venv\\images2\\202535.png" in duplicates[0]
 
 
 def test_find_duplicates_no_folders():
